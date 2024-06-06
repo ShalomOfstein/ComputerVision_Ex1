@@ -13,12 +13,12 @@ from typing import List
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
+
 LOAD_GRAY_SCALE = 1
 LOAD_RGB = 2
 
 
-def myID() -> np.int:
-
+def myID() -> int:
     return 318845500
 
 
@@ -54,13 +54,12 @@ def imDisplay(filename: str, representation: int):
     plt.figure()
 
     if representation == 1:
-        plt.imshow(image, cmap ='gray')
+        plt.imshow(image, cmap='gray')
     else:
         plt.imshow(image)
 
     plt.axis('off')  # Hide axes
     plt.show()
-
 
 
 def transformRGB2YIQ(imgRGB: np.ndarray) -> np.ndarray:
@@ -69,7 +68,17 @@ def transformRGB2YIQ(imgRGB: np.ndarray) -> np.ndarray:
     :param imgRGB: An Image in RGB
     :return: A YIQ in image color space
     """
-    pass
+    RGB2YIQ = np.array([[0.299, 0.587, 0.114],
+                        [0.596, -0.275, -0.321],
+                        [0.212, -0.523, 0.311]])
+    # Reshape image to (height*width, 3)
+    h, w, c = imgRGB.shape
+    imRGB_reshaped = imgRGB.reshape((h * w, 3))
+
+    # Convert image to YIQ
+    imgYIQ = np.dot(imRGB_reshaped, RGB2YIQ.T)
+    imgYIQ = imgYIQ.reshape((h, w, 3))
+    return imgYIQ
 
 
 def transformYIQ2RGB(imgYIQ: np.ndarray) -> np.ndarray:
@@ -78,7 +87,17 @@ def transformYIQ2RGB(imgYIQ: np.ndarray) -> np.ndarray:
     :param imgYIQ: An Image in YIQ
     :return: A RGB in image color space
     """
-    pass
+    YIQ2RGB = np.array([[1.0, 0.956, 0.621],
+                        [1.0, -0.272, -0.647],
+                        [1.0, -1.106, 1.703]])
+    # Reshape image to (height*width, 3)
+    h, w, c = imgYIQ.shape
+    imYIQ_reshaped = imgYIQ.reshape((h * w, 3))
+
+    # Convert image to RGB
+    imgRGB = np.dot(imYIQ_reshaped, YIQ2RGB.T)
+    imgRGB = imgRGB.reshape((h, w, 3))
+    return imgRGB
 
 
 def hsitogramEqualize(imgOrig: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarray):
@@ -87,7 +106,56 @@ def hsitogramEqualize(imgOrig: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarra
         :param imgOrig: Original Histogram
         :ret
     """
-    pass
+    # Check if the image is in RGB
+    is_rgb = len(imgOrig.shape) == 3 and imgOrig.shape[2] == 3
+
+    if is_rgb:
+        # Convert RGB to YIQ
+        imYIQ = transformRGB2YIQ(imgOrig)
+        # Only work on the Y channel
+        Y_channel = imYIQ[:, :, 0]
+
+    # in the case where the image is in grayscale
+    else:
+        # Only work on the Y channel
+        Y_channel = imgOrig
+
+
+    # Normalize Y_channel to [0, 255]
+    Y_channel_norm = (Y_channel * 255).astype(np.uint8)
+
+    # Calculate histogram
+    histOrg, bins = np.histogram(Y_channel_norm.flatten(), bins=256, range=[0, 256])
+
+    # Calculate cumulative sum
+    cumsum = np.cumsum(histOrg)
+
+    # Normalize cumulative sum
+    cumsum_normalized = cumsum / cumsum[-1]
+
+    # Create Look Up Table (LUT)
+    LUT = (cumsum_normalized * 255).astype(np.uint8)
+
+    # Apply LUT to the original image
+    Y_channel_eq = LUT[Y_channel_norm]
+
+    # Normalize the equalized Y channel back to [0, 1]
+    Y_channel_eq = Y_channel_eq.astype(np.float32) / 255.0
+
+    if is_rgb:
+        # Replace the Y channel with the equalized one
+        imYIQ[:, :, 0] = Y_channel_eq
+        # Convert YIQ to RGB
+        imEq = transformYIQ2RGB(imYIQ)
+    else:
+
+        imEq = Y_channel_eq
+
+    # Calculate histogram of the equalized image
+    histEq, _ = np.histogram(Y_channel_eq.flatten() * 255, bins=256, range=[0, 256])
+
+    return imEq, histOrg, histEq
+
 
 
 def quantizeImage(imOrig: np.ndarray, nQuant: int, nIter: int) -> (List[np.ndarray], List[float]):

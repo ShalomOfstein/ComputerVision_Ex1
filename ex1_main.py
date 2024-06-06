@@ -56,9 +56,11 @@ def main():
     # Convert Color spaces
     img = imReadAndConvert(img_path, LOAD_RGB)
     yiq_img = transformRGB2YIQ(img)
-    f, ax = plt.subplots(1, 2)
+    rgb_img = transformYIQ2RGB(yiq_img)
+    f, ax = plt.subplots(1, 3)
     ax[0].imshow(img)
     ax[1].imshow(yiq_img)
+    ax[2].imshow(rgb_img)
     plt.show()
 
     # Image histEq

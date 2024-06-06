@@ -222,6 +222,3 @@ def quantizeImage(imOrig: np.ndarray, nQuant: int, nIter: int) -> (List[np.ndarr
         errors.append(MSE)
 
     return quantized_images, errors
-
-
-

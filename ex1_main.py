@@ -18,10 +18,10 @@ def histEqDemo(img_path: str, rep: int):
 
     # Display the images
     plt.figure()
-    plt.imshow(img)
+    plt.imshow(np.clip(img, 0, 1))
 
     plt.figure()
-    plt.imshow(imgeq)
+    plt.imshow(np.clip(imgeq,0,1))
     plt.show()
 
 
@@ -34,11 +34,17 @@ def quantDemo(img_path: str, rep: int):
     print("Time:%.2f" % (time.time() - st))
     print("Error 0:\t %f" % err_lst[0])
     print("Error last:\t %f" % err_lst[-1])
-
     plt.gray()
-    plt.imshow(img_lst[0])
+    plt.imshow(np.clip(img_lst[0], 0, 1))
     plt.figure()
-    plt.imshow(img_lst[-1])
+    plt.imshow(np.clip(img_lst[-1], 0, 1))
+    plt.imshow(np.clip(img, 0, 1))
+
+    # f, ax = plt.subplots(1, 3)
+    # ax[0].imshow(np.clip(img, 0, 1))
+    # ax[1].imshow(np.clip(img_lst[0], 0, 1))
+    # ax[2].imshow(np.clip(img_lst[-1], 0, 1))
+    # plt.show()
 
     plt.figure()
     plt.plot(err_lst, 'r')
@@ -58,9 +64,9 @@ def main():
     yiq_img = transformRGB2YIQ(img)
     rgb_img = transformYIQ2RGB(yiq_img)
     f, ax = plt.subplots(1, 3)
-    ax[0].imshow(img)
-    ax[1].imshow(yiq_img)
-    ax[2].imshow(rgb_img)
+    ax[0].imshow(np.clip(img, 0, 1))
+    ax[1].imshow(np.clip(yiq_img, 0, 1))
+    ax[2].imshow(np.clip(rgb_img, 0, 1))
     plt.show()
 
     # Image histEq
@@ -73,7 +79,7 @@ def main():
 
     # Gamma
     gammaDisplay(img_path, LOAD_GRAY_SCALE)
-
+    gammaDisplay(img_path, LOAD_RGB)
 
 if __name__ == '__main__':
     main()

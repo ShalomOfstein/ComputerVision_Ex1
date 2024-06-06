@@ -107,7 +107,7 @@ def hsitogramEqualize(imgOrig: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarra
         :ret
     """
     # Check if the image is in RGB
-    is_rgb = len(imgOrig.shape) == 3 and imgOrig.shape[2] == 3
+    is_rgb = len(imgOrig.shape) == 3
 
     if is_rgb:
         # Convert RGB to YIQ
@@ -120,12 +120,11 @@ def hsitogramEqualize(imgOrig: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarra
         # Only work on the Y channel
         Y_channel = imgOrig
 
-
     # Normalize Y_channel to [0, 255]
     Y_channel_norm = (Y_channel * 255).astype(np.uint8)
 
     # Calculate histogram
-    histOrg, bins = np.histogram(Y_channel_norm.flatten(), bins=256, range=[0, 256])
+    histOrg, _ = np.histogram(Y_channel_norm.flatten(), bins=256)
 
     # Calculate cumulative sum
     cumsum = np.cumsum(histOrg)
@@ -146,16 +145,15 @@ def hsitogramEqualize(imgOrig: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarra
         # Replace the Y channel with the equalized one
         imYIQ[:, :, 0] = Y_channel_eq
         # Convert YIQ to RGB
-        imEq = transformYIQ2RGB(imYIQ)
+        imgEq = transformYIQ2RGB(imYIQ)
     else:
 
-        imEq = Y_channel_eq
+        imgEq = Y_channel_eq
 
     # Calculate histogram of the equalized image
-    histEq, _ = np.histogram(Y_channel_eq.flatten() * 255, bins=256, range=[0, 256])
+    histEq, _ = np.histogram(Y_channel_eq.flatten() * 255, bins=256)
 
-    return imEq, histOrg, histEq
-
+    return imgEq, histOrg, histEq
 
 
 def quantizeImage(imOrig: np.ndarray, nQuant: int, nIter: int) -> (List[np.ndarray], List[float]):
@@ -166,4 +164,64 @@ def quantizeImage(imOrig: np.ndarray, nQuant: int, nIter: int) -> (List[np.ndarr
         :param nIter: Number of optimization loops
         :return: (List[qImage_i],List[error_i])
     """
-    pass
+    # Check if the image is in RGB
+    is_rgb = len(imOrig.shape) == 3
+
+    if is_rgb:
+        # Convert RGB to YIQ
+        imYIQ = transformRGB2YIQ(imOrig)
+        # Only work on the Y channel
+        Y_channel = imYIQ[:, :, 0]
+
+    # in the case where the image is in grayscale
+    else:
+        # Only work on the Y channel
+        Y_channel = imOrig
+
+    Y_channel = (Y_channel * 255).astype(np.uint8)
+    hist, bins = np.histogram(Y_channel, bins=256, range=(0, 256))
+
+    z_segments = np.linspace(0, 256, nQuant + 1, dtype=np.int32)
+    q_values = np.zeros(nQuant, dtype=np.float32)
+    errors = []
+    quantized_images = []
+
+    for iteration in range(nIter):
+        for i in range(nQuant):
+            if np.sum(hist[z_segments[i]:z_segments[i + 1]]) > 0:
+                q_values[i] = (np.sum(np.arange(z_segments[i], z_segments[i + 1]) *
+                                      hist[z_segments[i]:z_segments[i + 1]]) /
+                               np.sum(hist[z_segments[i]:z_segments[i + 1]]))
+            else:
+                q_values[i] = 0
+
+        new_z = np.zeros_like(z_segments)
+        new_z[0], new_z[-1] = z_segments[0], z_segments[-1]
+        for i in range(1, nQuant):
+            new_z[i] = (q_values[i - 1] + q_values[i]) / 2
+
+        if np.array_equal(new_z, z_segments):
+            break
+        z_segments = new_z
+
+        quantized_image = Y_channel.copy().astype(np.float32)
+
+        for i in range(nQuant):
+            quantized_image[(Y_channel >= z_segments[i]) & (Y_channel < z_segments[i + 1])] = q_values[i]
+
+        quantized_image /= 255.0
+
+        if is_rgb:
+            imYIQ[:, :, 0] = quantized_image
+            MSE = np.mean((Y_channel / 255.0 - quantized_image) ** 2)
+            quantized_image = transformYIQ2RGB(imYIQ)
+        else:
+            MSE = np.mean((Y_channel / 255.0 - quantized_image) ** 2)
+
+        quantized_images.append(quantized_image)
+        errors.append(MSE)
+
+    return quantized_images, errors
+
+
+
